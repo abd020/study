@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 20% 12%;
+
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 96%;
+    --secondary-foreground: 224 20% 20%;
+
+    --muted: 220 16% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 243 75% 97%;
+    --accent-foreground: 243 75% 40%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 60% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 32 92% 46%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 243 75% 59%;
+
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 224 20% 12%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-accent: 220 16% 96%;
+
+    --radius: 0.65rem;
+  }
+
+  .dark {
+    --background: 224 24% 7%;
+    --foreground: 220 14% 96%;
+
+    --card: 224 22% 10%;
+    --card-foreground: 220 14% 96%;
+
+    --popover: 224 22% 10%;
+    --popover-foreground: 220 14% 96%;
+
+    --primary: 243 80% 68%;
+    --primary-foreground: 224 24% 8%;
+
+    --secondary: 223 18% 16%;
+    --secondary-foreground: 220 14% 92%;
+
+    --muted: 223 18% 16%;
+    --muted-foreground: 220 10% 62%;
+
+    --accent: 243 40% 20%;
+    --accent-foreground: 243 80% 84%;
+
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 48% 45%;
+    --success-foreground: 224 24% 8%;
+
+    --warning: 32 82% 56%;
+    --warning-foreground: 224 24% 8%;
+
+    --border: 223 16% 20%;
+    --input: 223 16% 22%;
+    --ring: 243 80% 68%;
+
+    --sidebar: 224 24% 9%;
+    --sidebar-foreground: 220 14% 92%;
+    --sidebar-border: 223 16% 18%;
+    --sidebar-accent: 223 18% 15%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 999px;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
