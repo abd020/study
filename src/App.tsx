@@ -1,10 +1,13 @@
 import { Suspense, lazy } from "react";
 import { Navigate, Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/layout/app-shell";
+import { ConfigurationRequired } from "@/components/common/configuration-required";
+import { ErrorBoundary } from "@/components/common/error-boundary";
 import { LoadingScreen } from "@/components/common/loading";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthProvider } from "@/providers/auth-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
@@ -80,14 +83,26 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Sans variables d'environnement, rien ne peut fonctionner : on explique
+  // le problème au lieu de laisser une page blanche.
+  if (!isSupabaseConfigured) {
+    return (
+      <ThemeProvider>
+        <ConfigurationRequired />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
       <QueryProvider>
         <AuthProvider>
           <TooltipProvider delayDuration={200}>
-            <Router>
-              <AppRoutes />
-            </Router>
+            <ErrorBoundary>
+              <Router>
+                <AppRoutes />
+              </Router>
+            </ErrorBoundary>
             <Toaster />
           </TooltipProvider>
         </AuthProvider>

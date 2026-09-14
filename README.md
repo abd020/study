@@ -16,6 +16,7 @@ en supports de révision.
 - [Stack](#stack)
 - [Démarrage rapide](#démarrage-rapide)
 - [Configuration de Supabase](#configuration-de-supabase)
+- [Déploiement](#déploiement-vercel-netlify)
 - [Sécurité](#sécurité)
 - [Architecture](#architecture)
 - [Modèle de données](#modèle-de-données)
@@ -114,6 +115,71 @@ tout appel non authentifié est rejeté.
 Depuis l'application : **Paramètres → Données → Créer les données de
 démonstration**. Un cours « Finance (démo) » avec quatre chapitres, un contenu,
 cinq cartes et un examen. Le bouton voisin supprime tout.
+
+---
+
+## Déploiement (Vercel, Netlify…)
+
+### 1. Déclarer les variables d'environnement chez l'hébergeur
+
+C'est l'oubli le plus fréquent. Vite **remplace** `import.meta.env.VITE_*` au
+moment du build : le fichier `.env` local n'est pas versionné, donc l'hébergeur
+ne le voit jamais. Sans ces variables, l'application se compile sans erreur mais
+ne peut joindre aucune base.
+
+Sur Vercel : **Settings → Environment Variables**, pour *Production*, *Preview*
+et *Development* :
+
+| Variable | Valeur |
+|---|---|
+| `VITE_SUPABASE_URL` | Supabase → Project Settings → API → *Project URL* |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → clé *anon public* |
+
+Puis **redéployer** : les variables ne sont prises en compte qu'au build suivant,
+un simple rafraîchissement de la page ne suffit pas.
+
+Si elles manquent, l'application affiche un écran expliquant lesquelles sont
+absentes plutôt qu'une page blanche.
+
+`ANTHROPIC_API_KEY` n'a rien à faire ici : elle vit dans les secrets Supabase et
+n'est lue que par l'Edge Function.
+
+### 2. Autoriser le domaine déployé dans Supabase
+
+**Authentication → URL Configuration** :
+
+- *Site URL* : `https://<votre-projet>.vercel.app`
+- *Redirect URLs* : ajouter `https://<votre-projet>.vercel.app/reset-password`
+  et `https://<votre-projet>.vercel.app/login`
+
+Sans cela, les liens de confirmation d'inscription et de réinitialisation de mot
+de passe renvoient vers l'ancienne *Site URL* (souvent `localhost`). Pour les
+déploiements de préversion, dont l'URL change à chaque commit, un motif comme
+`https://<votre-projet>-*.vercel.app/**` couvre l'ensemble.
+
+### 3. Routage
+
+`vercel.json` redirige toutes les routes vers `index.html` : sans cette règle,
+ouvrir ou rafraîchir directement `/courses/<id>` renvoie une 404, puisque le
+routeur vit côté navigateur. Les fichiers de `assets/` restent servis
+statiquement et sont mis en cache un an (leur nom contient une empreinte).
+
+### 4. Version de Node
+
+Le projet requiert **Node 20.11 ou plus** (`engines` dans `package.json`). Sur
+Vercel : Settings → General → Node.js Version.
+
+### Liste de vérification
+
+```
+[ ] VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY déclarées chez l'hébergeur
+[ ] Redéploiement effectué après l'ajout des variables
+[ ] Migrations appliquées sur le projet Supabase (supabase db push)
+[ ] Domaine déployé ajouté dans Authentication → URL Configuration
+[ ] ANTHROPIC_API_KEY dans les secrets Supabase, jamais côté frontend
+[ ] Edge Function déployée (supabase functions deploy generate-study-material)
+[ ] Node 20.11+ configuré
+```
 
 ---
 

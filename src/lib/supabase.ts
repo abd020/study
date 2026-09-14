@@ -3,26 +3,42 @@ import { createClient } from "@supabase/supabase-js";
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!url || !anonKey) {
-  throw new Error(
-    "Configuration Supabase manquante. Copie .env.example vers .env et renseigne " +
-      "VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.",
-  );
-}
+/**
+ * Indique si les variables d'environnement Supabase sont présentes.
+ *
+ * Elles sont injectées **au moment du build** par Vite : sur un hébergeur
+ * comme Vercel ou Netlify, elles doivent être déclarées dans les réglages du
+ * projet avant le déploiement, un fichier .env local ne suffit pas (il n'est
+ * pas versionné).
+ *
+ * On ne lève pas d'exception ici : un `throw` au chargement du module
+ * produirait une page blanche sans explication. L'application affiche à la
+ * place un écran de configuration (voir ConfigurationRequired).
+ */
+export const isSupabaseConfigured = Boolean(url && anonKey);
+
+export const missingSupabaseEnv = [
+  url ? null : "VITE_SUPABASE_URL",
+  anonKey ? null : "VITE_SUPABASE_ANON_KEY",
+].filter((name): name is string => name !== null);
 
 /**
  * Client Supabase partagé. La clé anonyme est publique par conception :
  * toute la sécurité repose sur les politiques RLS définies côté PostgreSQL.
  * Aucune clé Anthropic n'existe côté navigateur.
  */
-export const supabase = createClient(url, anonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: "pkce",
+export const supabase = createClient(
+  url || "https://non-configure.supabase.co",
+  anonKey || "non-configure",
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: "pkce",
+    },
   },
-});
+);
 
 /** Transforme une erreur Supabase/PostgREST en message lisible en français. */
 export function toMessage(error: unknown): string {
@@ -39,6 +55,8 @@ export function toMessage(error: unknown): string {
       "Le mot de passe doit contenir au moins 6 caractères.",
     "New password should be different from the old password.":
       "Le nouveau mot de passe doit être différent de l'ancien.",
+    "Failed to fetch":
+      "Impossible de joindre Supabase. Vérifie l'URL du projet et ta connexion.",
   };
 
   return map[message] ?? message;

@@ -26,5 +26,5 @@ supabase/.env
 *.log
 npm-debug.log*
 
-# Artefacts TypeScript
+# TypeScript (tsc -b)
 *.tsbuildinfo
