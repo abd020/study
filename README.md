@@ -21,6 +21,7 @@ en supports de révision.
 - [Architecture](#architecture)
 - [Modèle de données](#modèle-de-données)
 - [Répétition espacée](#répétition-espacée)
+- [Import de documents](#import-de-documents)
 - [Intégration Claude](#intégration-claude)
 - [Maîtrise des coûts IA](#maîtrise-des-coûts-ia)
 - [Tests](#tests)
@@ -303,6 +304,27 @@ intervalle d'au moins 21 jours. Raccourcis clavier : `Espace` pour révéler,
 
 ---
 
+## Import de documents
+
+Un document joint est téléversé dans le bucket privé `materials`, puis son texte
+est extrait **dans le navigateur**, au moment de l'import, et enregistré dans
+`study_materials.processed_content` — le champ que l'Edge Function lit en
+priorité sur `raw_content`. Sans cette étape, un PDF importé était bien stocké
+mais restait invisible pour les générations : il fallait recopier son texte.
+
+| Format | Extraction |
+| --- | --- |
+| PDF | pdf.js, chargé à la demande (hors du bundle initial) |
+| `.txt`, `.md` | lecture directe |
+| Word, PowerPoint, images | aucune — l'interface invite à coller le texte |
+
+Le texte est normalisé puis plafonné à 120 000 caractères, la limite que
+l'Edge Function applique de toute façon au contexte. pdf.js 6 suppose un
+navigateur récent (`Promise.withResolvers` : Chrome 119+, Safari 17.4+,
+Firefox 121+).
+
+---
+
 ## Intégration Claude
 
 Une seule Edge Function : `supabase/functions/generate-study-material`.
@@ -391,7 +413,8 @@ PGHOST=localhost PGPORT=5432 PGUSER=postgres USE_LOCAL_CLUSTER=0 npm run test:db
 ## Parcours utilisateur
 
 1. Inscription, puis création d'un cours.
-2. Découpage en chapitres, ajout du contenu (texte collé, notes, documents).
+2. Découpage en chapitres, ajout du contenu : texte collé, notes, ou documents
+   importés — le texte des PDF et des fichiers texte est extrait automatiquement.
 3. Enregistrement de la date d'examen et des chapitres évalués.
 4. Génération d'un résumé, de flashcards et d'un quiz à partir du contenu.
 5. Révision quotidienne : la répétition espacée fixe les prochaines échéances.
