@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FileUp, Loader2, Paperclip, X } from "lucide-react";
+import { FileText, FileUp, Loader2, Paperclip, TriangleAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MATERIAL_TYPE_LABELS } from "@/lib/constants";
+import { extractText, UnsupportedFormatError } from "@/lib/extract-text";
+import type { ExtractionResult } from "@/lib/extract-text";
 import { uploadMaterialFile } from "@/services/materials";
 import { useUserId } from "@/hooks/use-auth";
 import { toMessage } from "@/lib/supabase";
@@ -37,6 +39,11 @@ export function MaterialFormDialog({
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  // Texte tiré du document importé. Il alimente `processed_content`, que la
+  // génération lit en priorité sur le champ Contenu.
+  const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
+  const [extractionNote, setExtractionNote] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<MaterialType>("text");
   const [sectionId, setSectionId] = useState<string>(NO_SECTION);
@@ -52,7 +59,20 @@ export function MaterialFormDialog({
     setContent(material?.raw_content ?? "");
     setFileUrl(material?.file_url ?? null);
     setFileName(material?.file_url ? material.file_url.split("/").pop() ?? null : null);
+    setExtraction(
+      material?.processed_content
+        ? { text: material.processed_content, truncated: false }
+        : null,
+    );
+    setExtractionNote(null);
   }, [open, material, defaultSectionId]);
+
+  function forgetFile() {
+    setFileUrl(null);
+    setFileName(null);
+    setExtraction(null);
+    setExtractionNote(null);
+  }
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -69,8 +89,34 @@ export function MaterialFormDialog({
       toast.success("Document importé.");
     } catch (error) {
       toast.error(toMessage(error));
-    } finally {
       setUploading(false);
+      return;
+    }
+    setUploading(false);
+
+    // L'extraction est distincte de l'import : un document dont le texte n'est
+    // pas récupérable reste une pièce jointe valable, il faut alors coller le
+    // texte à la main comme avant.
+    setExtracting(true);
+    setExtraction(null);
+    setExtractionNote(null);
+    try {
+      const result = await extractText(file);
+      if (result.text) {
+        setExtraction(result);
+        toast.success("Texte du document extrait.");
+      } else {
+        setExtractionNote(
+          "Aucun texte trouvé : le document est probablement scanné (image). " +
+            "Colle son texte dans le champ Contenu.",
+        );
+      }
+    } catch (error) {
+      setExtractionNote(
+        error instanceof UnsupportedFormatError ? error.message : toMessage(error),
+      );
+    } finally {
+      setExtracting(false);
     }
   }
 
@@ -82,6 +128,7 @@ export function MaterialFormDialog({
       section_id: sectionId === NO_SECTION ? null : sectionId,
       source: source.trim() || null,
       raw_content: content,
+      processed_content: extraction?.text ?? null,
       file_url: fileUrl,
     });
     onOpenChange(false);
@@ -93,8 +140,8 @@ export function MaterialFormDialog({
         <DialogHeader>
           <DialogTitle>{material ? "Modifier le contenu" : "Ajouter du contenu"}</DialogTitle>
           <DialogDescription>
-            Colle tes notes ou le texte du cours. C'est ce contenu — et lui seul — qui sert de
-            base aux générations de Claude.
+            Colle tes notes ou le texte du cours, ou importe un document : c'est ce texte — et
+            lui seul — qui sert de base aux générations de Claude.
           </DialogDescription>
         </DialogHeader>
 
@@ -175,7 +222,7 @@ export function MaterialFormDialog({
                   size="icon"
                   className="h-7 w-7"
                   aria-label="Retirer le document"
-                  onClick={() => { setFileUrl(null); setFileName(null); }}
+                  onClick={forgetFile}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -199,9 +246,37 @@ export function MaterialFormDialog({
               accept=".pdf,.txt,.md,.doc,.docx,.pptx,.png,.jpg,.jpeg"
               onChange={handleFile}
             />
+            {extracting ? (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Extraction du texte…
+              </p>
+            ) : null}
+
+            {extraction && !extracting ? (
+              <p className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-xs text-muted-foreground">
+                <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                <span>
+                  Texte extrait
+                  {extraction.pages ? ` de ${extraction.pages} page${extraction.pages > 1 ? "s" : ""}` : ""}
+                  {" "}({extraction.text.length.toLocaleString("fr-FR")} caractères)
+                  {extraction.truncated ? ", tronqué à la limite exploitable" : ""}.
+                  {" "}C'est lui qui servira aux générations, à la place du champ Contenu.
+                </span>
+              </p>
+            ) : null}
+
+            {extractionNote && !extracting ? (
+              <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                <span>{extractionNote}</span>
+              </p>
+            ) : null}
+
             <p className="text-xs text-muted-foreground">
-              Le fichier est conservé en pièce jointe privée. Pour que Claude puisse l'exploiter,
-              colle son texte dans le champ ci-dessus.
+              Le fichier est conservé en pièce jointe privée. Le texte des PDF et des fichiers
+              texte est extrait automatiquement ; pour les autres formats, colle-le dans le champ
+              ci-dessus.
             </p>
           </div>
 

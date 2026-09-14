@@ -37,17 +37,36 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+    const classes = cn(buttonVariants({ variant, size, className }));
+    const isDisabled = disabled || loading;
+
+    // Slot exige un enfant unique. Lui passer l'indicateur de chargement à côté
+    // des enfants — même réduit à `null` — en fait deux, et le rendu échoue avec
+    // « Slot failed to slot onto its children ». Un bouton délégué à un lien n'a
+    // de toute façon pas d'état de chargement à afficher.
+    //
+    // `disabled` n'existe pas non plus sur une balise <a> : sans neutralisation
+    // explicite, un bouton-lien « désactivé » reste cliquable et focusable. Les
+    // variantes `disabled:` de Tailwind reposant sur la pseudo-classe :disabled,
+    // elles ne s'appliquent pas ici : l'apparence est reproduite à la main.
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(classes, isDisabled && "pointer-events-none opacity-50")}
+          ref={ref}
+          {...props}
+          {...(isDisabled ? { "aria-disabled": true, tabIndex: -1 } : null)}
+        >
+          {children}
+        </Slot>
+      );
+    }
+
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        disabled={disabled || loading}
-        {...props}
-      >
-        {loading && !asChild ? <Loader2 className="animate-spin" /> : null}
+      <button className={classes} ref={ref} disabled={isDisabled} {...props}>
+        {loading ? <Loader2 className="animate-spin" /> : null}
         {children}
-      </Comp>
+      </button>
     );
   },
 );
